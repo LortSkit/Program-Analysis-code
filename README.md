@@ -1,2 +1,3 @@
 # Program-Analysis-code
-We needed to make one
+Our group consists of the following people:
+Alexander, Ana Marija, Ion and Abigail
