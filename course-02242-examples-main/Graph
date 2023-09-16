@@ -1,0 +1,24 @@
+// wtf
+digraph {
+	"dtu.deps.normal.Primes" [label="{dtu.deps.normal.Primes|- primes : java.util.List\l|+ init() : void\l+ iterator() : java.util.Iterator\l+ main() : void\l}" shape=record]
+	"dtu.deps.normal.Primes" -> "java.util.ArrayList"
+	"dtu.deps.normal.Primes" -> "java.util.List"
+	"dtu.deps.normal.Primes" -> "dtu.deps.normal.Primes$PrimesIterator"
+	"dtu.deps.normal.Primes" -> "java.io.PrintStream"
+	"dtu.deps.normal.Primes" -> "java.lang.Integer"
+	"dtu.deps.normal.Primes" -> "java.lang.Object"
+	"dtu.deps.normal.Primes" -> "java.util.Iterator"
+	"dtu.deps.simple.Example" [label="{dtu.deps.simple.Example| other : dtu.deps.simple.Other\l|+ init() : void\l+ main() : void\l}" shape=record]
+	"dtu.deps.simple.Example" -> "dtu.deps.util.Utils"
+	"dtu.deps.simple.Example" -> "java.lang.Object"
+	"dtu.deps.simple.Example" -> "dtu.deps.simple.Other"
+	"dtu.deps.simple.Other" [label="{dtu.deps.simple.Other||+ init() : void\l+ main() : void\l}" shape=record]
+	"dtu.deps.simple.Other" -> "dtu.deps.util.Utils"
+	"dtu.deps.simple.Other" -> "java.lang.Object"
+	"dtu.deps.tricky.Tricky" [label="{dtu.deps.tricky.Tricky| Other : dtu.deps.simple.Example\l dtu : dtu.deps.tricky.Tricky\l deps : dtu.deps.tricky.Tricky\l simple : dtu.deps.tricky.Tricky\l|+ init() : void\l- hello() : void\l- Other() : void\l}" shape=record]
+	"dtu.deps.tricky.Tricky" -> "java.lang.Object"
+	"dtu.deps.tricky.Tricky" -> "dtu.deps.simple.Example"
+	"dtu.deps.util.Utils" [label="{dtu.deps.util.Utils||+ init() : void\l+ printHello() : void\l}" shape=record]
+	"dtu.deps.util.Utils" -> "java.lang.Object"
+	"dtu.deps.util.Utils" -> "java.io.PrintStream"
+}
