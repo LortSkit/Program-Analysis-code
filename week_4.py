@@ -112,6 +112,7 @@ class Interpreter:
     def load(self, b):
         (l, s, pc) = self.stack.pop(-1)
         v = l[b["index"]]
+        self.log("Loading at index " + str(v))
         self.stack.append((l, s+[v], pc+1))
         return True, b
 
@@ -120,6 +121,8 @@ class Interpreter:
             (l, s, pc) = self.stack.pop(-1)
             v1 = s[-1]
             v2 = s[-2]
+
+            self.log("add " + str(v1) + " + " + str(v2))
             self.stack.append((l, s[:-2] + [v1+v2], pc + 1))
         return True, b
         # elif b["operant"] == "add":
