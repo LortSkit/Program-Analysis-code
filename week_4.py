@@ -1,6 +1,6 @@
 import json
 
-data = json.loads(open('./decompiled/dtu/compute/exec/Simple.json').read())
+data = json.loads(open('./course-02242-examples/decompiled/dtu/compute/exec/Simple.json').read())
 
 
 def cleanByteCode(bytecofr):
@@ -8,6 +8,8 @@ def cleanByteCode(bytecofr):
         del b["offset"]
         if b["opr"] == "return":
             b["opr"] = "return1"
+        elif b["opr"] == "if":
+            b["opr"] = "if1"
     return bytecofr
 
 
@@ -115,6 +117,47 @@ class Interpreter:
         self.log("Loading at index " + str(v))
         self.stack.append((l, s+[v], pc+1))
         return True, b
+    
+    
+    def store(self,b): #probably very wrong
+        (l, s, pc) = self.stack.pop(-1)
+        v = l[b["index"]]
+        self.log("Storing at index " + str(v))
+        self.stack.append((l+[v], s, pc+1))
+        return True, b
+    
+    def if1(self,b):
+        (l, s, pc) = self.stack.pop(-1)
+        self.stack.append((l, s, pc+1))
+        if b["condition"] == "gt":
+            v1 = s[-1]
+            v2 = s[-2]
+            if v1>v2:
+                return True,b
+            
+        if b["condition"] == "le":
+            v1 = s[-1]
+            v2 = s[-2]
+            if v1<=v2:
+                return True,b
+        return False, b
+    
+    def ifz(self,b): #might be wrong???
+        return self.if1(b)
+    
+    def goto(self,b): #definitely wrong
+        (l, s, pc) = self.stack.pop(-1)
+        self.log("Going to " + str(b["target"]))
+        self.stack.append((l, s, b["target"]))
+        return True, b
+
+    def incr(self,b):
+        (l, s, pc) = self.stack.pop(-1)
+        l[b["index"]]+=b["amount"]
+        self.log("Incrementing " + str(l[b["index"]]) + " by " + str(b["amount"]))
+        self.stack.append((l, s, pc+1))
+        return True,b
+
 
     def binary(self, b):
         if b["operant"] == "add":
@@ -124,6 +167,22 @@ class Interpreter:
 
             self.log("add " + str(v1) + " + " + str(v2))
             self.stack.append((l, s[:-2] + [v1+v2], pc + 1))
+
+        elif b["operant"] == "sub":
+            (l, s, pc) = self.stack.pop(-1)
+            v1 = s[-1]
+            v2 = s[-2]
+
+            self.log("sub " + str(v1) + " - " + str(v2))
+            self.stack.append((l, s[:-2] + [v1-v2], pc + 1))
+
+        elif b["operant"] == "mul":
+            (l, s, pc) = self.stack.pop(-1)
+            v1 = s[-1]
+            v2 = s[-2]
+
+            self.log("mul " + str(v1) + " * " + str(v2))
+            self.stack.append((l, s[:-2] + [v1*v2], pc + 1))
         return True, b
         # elif b["operant"] == "add":
 
@@ -150,5 +209,5 @@ class Interpreter:
 for method in methods:
     intr = Interpreter(method, None)
     print("Running method: " + method["name"])
-    res = (intr.run(([1, 2], [], 0)))
+    res = (intr.run(([1, 2, 3, 4], [], 0)))
     print("Return: " + str(res))
