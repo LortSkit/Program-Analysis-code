@@ -127,26 +127,45 @@ class Interpreter:
         if b["condition"] == "gt":
             v1 = s[-1]
             v2 = s[-2]
-            if v2>v1:
-                self.log(f"True {v2} > {v1}")
+            if v1>v2:
+                self.log(f"True {v1} > {v2}")
                 return True,b
+            else:
+                self.log(f"False {v1} > {v2}")
             
         if b["condition"] == "le":
             v1 = s[-1]
             v2 = s[-2]
-            if v2<=v1:
-                self.log(f"True {v2} <= {v1}")
+            if v1<=v2:
+                self.log(f"True {v1} <= {v2}")
                 return True,b
-        self.log(f"False")
-        return False, b
+            else:
+                self.log(f"False {v1} <= {v2}")
+        return False, s[-1]
     
     def ifz(self,b):
-        res, b = self.if1(b)
-        if not res:
-            return self.goto(b)
+        flag = False
         (l, s, pc) = self.stack.pop(-1)
         self.stack.append((l, s, pc+1))
-        return True,b
+        if b["condition"] == "gt":
+            v = s[-1]
+            if v>0:
+                self.log(f"True {v}>0")
+                flag = True
+            else:
+                self.log(f"False {v}>0")
+            
+        if b["condition"] == "le":
+            v = s[-1]
+            if v<=0:
+                self.log(f"True {v}<=0")
+                flag = True
+            else:
+                self.log(f"False {v}<=0")
+        if flag:
+            return self.goto(b)
+        
+        return True, b
     
     def goto(self,b):
         (l, s, pc) = self.stack.pop(-1)
