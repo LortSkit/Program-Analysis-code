@@ -20,7 +20,8 @@ def getCleanMethods(data):
         for annotation in method["annotations"]:
             if annotation["type"] == "dtu/compute/exec/Case":
                 methods.append(
-                    {"name": method["name"], "bytecode": cleanByteCode(method["code"]["bytecode"])})
+                    {"name": method["name"], "bytecode": cleanByteCode(method["code"]["bytecode"]),
+                     "max_stack": method["code"]["max_stack"], "max_locals": method["code"]["max_locals"]})
                 break
             # return []
 
@@ -73,16 +74,10 @@ class Interpreter:
             if not flag:
                 return ret
 
-        return None
-
-        # self.log_done()
-
     def step(self):
         (l, s, pc) = self.stack[-1]
         b = self.program["bytecode"][pc]
         if hasattr(self, b["opr"]):
-            # print("we are here: ")
-            # print(b["opr"])
             return getattr(self, b["opr"])(b)
         else:
             return False, None
@@ -114,16 +109,16 @@ class Interpreter:
     def load(self, b):
         (l, s, pc) = self.stack.pop(-1)
         v = l[b["index"]]
-        self.log("Loading at index " + str(v))
-        self.stack.append((l, s+[v], pc+1))
+        self.log(f"Loading {v} at index {b['index']}")
+        self.stack.append((l, (s+[v])[-self.program["max_stack"]:], pc+1))
         return True, b
     
     
-    def store(self,b): #probably very wrong
+    def store(self,b): #WTFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         (l, s, pc) = self.stack.pop(-1)
-        v = l[b["index"]]
-        self.log("Storing at index " + str(v))
-        self.stack.append((l+[v], s, pc+1))
+        l[b["index"]] = s[-1]
+        self.log(f"Storing {s[-1]} at index {b['index']}")
+        self.stack.append((l, s, pc+1))
         return True, b
     
     def if1(self,b):
@@ -132,29 +127,37 @@ class Interpreter:
         if b["condition"] == "gt":
             v1 = s[-1]
             v2 = s[-2]
-            if v1>v2:
+            if v2>v1:
+                self.log(f"True {v2} > {v1}")
                 return True,b
             
         if b["condition"] == "le":
             v1 = s[-1]
             v2 = s[-2]
-            if v1<=v2:
+            if v2<=v1:
+                self.log(f"True {v2} <= {v1}")
                 return True,b
+        self.log(f"False")
         return False, b
     
-    def ifz(self,b): #might be wrong???
-        return self.if1(b)
-    
-    def goto(self,b): #definitely wrong
+    def ifz(self,b):
+        res, b = self.if1(b)
+        if not res:
+            return self.goto(b)
         (l, s, pc) = self.stack.pop(-1)
-        self.log("Going to " + str(b["target"]))
+        self.stack.append((l, s, pc+1))
+        return True,b
+    
+    def goto(self,b):
+        (l, s, pc) = self.stack.pop(-1)
+        self.log(f"Going to {b['target']}")
         self.stack.append((l, s, b["target"]))
         return True, b
 
     def incr(self,b):
         (l, s, pc) = self.stack.pop(-1)
+        self.log(f"Incrementing {l[b['index']]} by {b['amount']}")
         l[b["index"]]+=b["amount"]
-        self.log("Incrementing " + str(l[b["index"]]) + " by " + str(b["amount"]))
         self.stack.append((l, s, pc+1))
         return True,b
 
@@ -184,7 +187,6 @@ class Interpreter:
             self.log("mul " + str(v1) + " * " + str(v2))
             self.stack.append((l, s[:-2] + [v1*v2], pc + 1))
         return True, b
-        # elif b["operant"] == "add":
 
     def return1(self, b):
         if b["type"] == None:
@@ -200,7 +202,7 @@ class Interpreter:
     def push(self, b):
         v = b["value"]["value"]
         (l, s, pc) = self.stack.pop(-1)
-        self.stack.append((l, s + [v], pc + 1))
+        self.stack.append((l, (s + [v])[-self.program["max_stack"]:], pc + 1))
         self.log("push " + str(v))
         return True, b
 
@@ -209,5 +211,5 @@ class Interpreter:
 for method in methods:
     intr = Interpreter(method, None)
     print("Running method: " + method["name"])
-    res = (intr.run(([1, 2, 3, 4], [], 0)))
+    res = (intr.run(([5, 2, 3, 4][:method["max_locals"]], [], 0)))
     print("Return: " + str(res))
