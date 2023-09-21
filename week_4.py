@@ -1,6 +1,6 @@
 import json
 
-data = json.loads(open('./course-02242-examples/decompiled/dtu/compute/exec/Simple.json').read())
+data = json.loads(open('./course-02242-examples/decompiled/dtu/compute/exec/Calls.json').read())
 
 
 def cleanByteCode(bytecofr):
@@ -10,6 +10,8 @@ def cleanByteCode(bytecofr):
             b["opr"] = "return1"
         elif b["opr"] == "if":
             b["opr"] = "if1"
+        elif b["opr"] == "get":
+            b["opr"] = "get1"
     return bytecofr
 
 
@@ -29,35 +31,9 @@ def getCleanMethods(data):
 
 
 methods = getCleanMethods(data)
-# print(methods)
-
-# for dic in methods[0]["bytecode"]:
-#     if dic["opr"] == "binary":
-#         pass
-#     if dic["opr"] == "arraylength":
-#         pass
-#     if dic["opr"] == "return":
-#         pass
-#     if dic["opr"] == "nop":
-#         pass
-# if dic["operant"] == "add":
-#     pass
-# if dic["operant"] == "mul":
-#     pass
-# if dic["operant"] == "add":
-#     pass
 
 
 class Interpreter:
-    # operants = ["add", "mul", "sub", "div", "rem"]
-    # op = {
-    #     "add": (),
-    #     "mul": (),
-    #     "sub": (),
-    #     "div": (),
-    #     "rem": ()
-    # }
-
     def __init__(self, p, verbose):
         self.program = p
         self.verbose = verbose
@@ -80,6 +56,7 @@ class Interpreter:
         if hasattr(self, b["opr"]):
             return getattr(self, b["opr"])(b)
         else:
+            print(f"IMPLEMENT {b['opr']} YOU FUCKING IDIOT")
             return False, None
 
     def pop(self, b):
@@ -97,9 +74,6 @@ class Interpreter:
         else:
             return False, None
 
-    # def invoke(self,b):
-    #     return True
-
     def nop(self, b):
         (l, s, pc) = self.stack.pop(-1)
         pc += 1
@@ -114,7 +88,7 @@ class Interpreter:
         return True, b
     
     
-    def store(self,b): #WTFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    def store(self,b): 
         (l, s, pc) = self.stack.pop(-1)
         l[b["index"]] = s[-1]
         self.log(f"Storing {s[-1]} at index {b['index']}")
@@ -132,6 +106,14 @@ class Interpreter:
                 return True,b
             else:
                 self.log(f"False {v1} > {v2}")
+        if b["condition"] == "ge":
+            v1 = s[-1]
+            v2 = s[-2]
+            if v1>=v2:
+                self.log(f"True {v1} >= {v2}")
+                return True,b
+            else:
+                self.log(f"False {v1} >= {v2}")
             
         if b["condition"] == "le":
             v1 = s[-1]
@@ -205,6 +187,22 @@ class Interpreter:
 
             self.log("mul " + str(v1) + " * " + str(v2))
             self.stack.append((l, s[:-2] + [v1*v2], pc + 1))
+        
+        elif b["operant"] == "div":
+            (l, s, pc) = self.stack.pop(-1)
+            v1 = s[-1]
+            v2 = s[-2]
+
+            self.log("div " + str(v1) + " / " + str(v2))
+            self.stack.append((l, s[:-2] + [v1/v2], pc + 1))
+        
+        elif b["operant"] == "rem":
+            (l, s, pc) = self.stack.pop(-1)
+            v1 = s[-1]
+            v2 = s[-2]
+
+            self.log("rem " + str(v1) + " % " + str(v2))
+            self.stack.append((l, s[:-2] + [v1%v2], pc + 1))
         return True, b
 
     def return1(self, b):
@@ -218,6 +216,18 @@ class Interpreter:
         else:
             return False, None
 
+    def get1(self,b): #This should get methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        (l, s, pc) = self.stack.pop(-1)
+        self.log("FUNCTION get NOT IMPLEMENTED")
+        self.stack.append((l, s, pc + 1))
+        return True,b
+    
+    def invoke(self,b): #This should use methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        (l, s, pc) = self.stack.pop(-1)
+        self.log("FUNCTION invoke NOT IMPLEMENTED")
+        self.stack.append((l, s, pc + 1))
+        return True,b
+
     def push(self, b):
         v = b["value"]["value"]
         (l, s, pc) = self.stack.pop(-1)
@@ -226,7 +236,6 @@ class Interpreter:
         return True, b
 
 
-# for method in methods:
 for method in methods:
     intr = Interpreter(method, None)
     print("Running method: " + method["name"])
