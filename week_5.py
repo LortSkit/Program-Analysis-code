@@ -1,7 +1,8 @@
 import json
+from copy import deepcopy
 
 data = json.loads(
-    open('./course-02242-examples/decompiled/dtu/compute/exec/Simple.json').read())
+    open('./course-02242-examples/decompiled/dtu/compute/exec/Array.json').read())
 
 
 class Pu(ZeroDivisionError):
@@ -11,16 +12,23 @@ class Pu(ZeroDivisionError):
 
 class Variable:
     def __init__(self, value):
-        if type(value) == "int":
+        if type(value).__name__ == "int":
             self.value = value
             self.type = "int"
-        elif type(value) == "tuple":
+        elif type(value).__name__ == "tuple":
             array_type, length, array = value
             self.value = array
             self.type = array_type
+            print(length)
             self.length = length
             if self.length > len(array):
                 self.value = self.value + [0] * (self.length - len(array))
+
+    def __repr__(self) -> str:
+        return str(self.value)
+
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 def cleanByteCode(bytecofr):
@@ -140,7 +148,12 @@ def binaries(interpreter, b, v1, v2, va1, va2):
 
 class ArithmeticSignAnalysis:
     def __init__(self, initial_value):
-        self.ps = set(self.alpha(initial_value))
+        if type(initial_value).__name__ == "int":
+            self.ps = set(self.alpha(initial_value))
+        elif type(initial_value) == "list":
+            self.ps = set([])
+            for val in initial_value:
+                self.ps = set().union(self.ps, self.alpha(val))
         self.error = set([])
 
     def alpha(self, var):
@@ -266,7 +279,7 @@ class Interpreter:
 
     def run(self, f):
         (l, s, pc) = f
-        la = [self.abstraction_class(local) for local in l]
+        la = [self.abstraction_class(local.value) for local in l]
 
         sa = []
         f = (l, la, s, sa, pc)
@@ -275,12 +288,12 @@ class Interpreter:
         while True:
             flag, ret = self.step()
             if not flag:
+                print(l)
                 return ret
 
     def step(self):
         (l, la, s, sa, pc) = self.stack[-1]
         b = self.program["bytecode"][pc]
-        print(la)
         if hasattr(self, b["opr"]):
             return getattr(self, b["opr"])(b)
         else:
@@ -310,11 +323,18 @@ class Interpreter:
 
     def load(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
-        v = l[b["index"]]
+        type = b["type"]
+        v = l[b["index"]]  # Variable
         va = la[b["index"]]
-        self.log(f"Loading {v} at index {b['index']}")
-        self.stack.append(
-            (l, la, (s+[v])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
+        if type == "int":
+            self.log(f"Loading {v.value} from index {b['index']}")
+            self.stack.append(
+                (l, la, (s+[deepcopy(v)])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
+        elif type == "ref":
+            self.log(f"Loading {v.value} from index {b['index']}")
+            self.stack.append(
+                (l, la, (s+[v])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
+
         return True, b
 
     def store(self, b):
@@ -325,19 +345,19 @@ class Interpreter:
         except:
             l.append(s[-1])
             la.append(sa[-1])
-        self.log(f"Storing {s[-1]} at index {b['index']}")
-        self.stack.append((l, la, s, sa, pc+1))
+        self.log(f"Storing {s[-1].value} at index {b['index']}")
+        self.stack.append((l, la, s[:-1], sa, pc+1))
         return True, b
 
     def if1(self, b):
         flag = False
         (l, la, s, sa, pc) = self.stack.pop(-1)
-        self.stack.append((l, la, s, sa, pc+1))
 
-        v1 = s[-1]
-        v2 = s[-2]
-        flag = booleans(self, b, v1, v2)
+        v2 = s[-1]
+        v1 = s[-2]
+        flag = booleans(self, b, v1.value, v2.value)
 
+        self.stack.append((l, la, s[:-2], sa, pc+1))
         if flag:
             return self.goto(b)
         return True, b
@@ -345,10 +365,10 @@ class Interpreter:
     def ifz(self, b):
         flag = False
         (l, la, s, sa, pc) = self.stack.pop(-1)
-        self.stack.append((l, la, s, sa, pc+1))
         v1 = s[-1]
-        v2 = 0
-        flag = booleans(self, b, v1, v2)
+        self.stack.append((l, la, s[:-1], sa, pc+1))
+        v2 = Variable(0)
+        flag = booleans(self, b, v1.value, v2.value)
 
         if flag:
             return self.goto(b)
@@ -362,8 +382,8 @@ class Interpreter:
 
     def incr(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
-        self.log(f"Incrementing {l[b['index']]} by {b['amount']}")
-        l[b["index"]] += b["amount"]
+        self.log(f"Incrementing {l[b['index']].value} by {b['amount']}")
+        l[b["index"]].value += b["amount"]
         amount_sign = self.abstraction_class(b["amount"])
         la[b["index"]] = (la[b["index"]]).abstr_add(amount_sign.ps)
         self.stack.append((l, la, s, sa, pc+1))
@@ -375,8 +395,9 @@ class Interpreter:
         v2 = s[-2]
         va1 = sa[-1]
         va2 = sa[-2]
-        (res, resa) = binaries(self, b, v1, v2, va1, va2)
-        self.stack.append((l, la, s[:-2] + [res], sa[:-2] + [resa], pc + 1))
+        (res, resa) = binaries(self, b, v1.value, v2.value, va1, va2)
+        self.stack.append(
+            (l, la, s[:-2] + [Variable(res)], sa[:-2] + [resa], pc + 1))
         return True, b
 
     def return1(self, b):
@@ -385,8 +406,8 @@ class Interpreter:
             return False, None
         elif b["type"] == "int":
             (l, la, s, sa, pc) = self.stack.pop(-1)
-            self.log("return " + str(s[-1]))
-            return False, s[-1]
+            self.log("return " + str(s[-1].value))
+            return False, s[-1].value
         else:
             return False, None
 
@@ -407,26 +428,64 @@ class Interpreter:
         va = self.abstraction_class(v)
         (l, la, s, sa, pc) = self.stack.pop(-1)
         self.stack.append(
-            (l, la, (s + [v])[-self.program["max_stack"]:], (sa + [va])[-self.program["max_stack"]:], pc + 1))
-        self.log("push " + str(v))
+            (l, la, (s + [Variable(v)])[-self.program["max_stack"]:], (sa + [va])[-self.program["max_stack"]:], pc + 1))
+        self.log(f'push {v}')
         return True, b
 
     def newarray(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
         dim = b["dim"]
         arr_type = b["type"]
-        arr_length = s[-1]
+        arr_length = s[-1].value
         if dim != 1:
             self.log(f"newarray dim {dim} not implemented")
             return False, None
 
-        self.stack.append(l, la, s[:-1] + [("int", arr_length, [])], sa, pc+1)
+        self.stack.append(
+            (l, la, s[:-1] + [Variable(("int array", arr_length, []))], sa, pc+1))
         self.log(f"newarray of type {arr_type} and length {arr_length}")
+        return True, b
+
+    def dup(self, b):
+        (l, la, s, sa, pc) = self.stack.pop(-1)
+        if s[-1].type == "int array":
+            s.append(s[-1])
+        elif s[-1].type == "int":
+            s.append(deepcopy(s[-1]))
+        self.log("Dup")
+        self.stack.append((l, la, s, sa, pc + 1))
+        return True, b
+
+    def array_store(self, b):
+        (l, la, s, sa, pc) = self.stack.pop(-1)
+        arr_val = s.pop()
+        arr_index = s.pop()
+        arr_ref = s.pop()
+        arr_ref.value[arr_index.value] = arr_val.value
+
+        self.log(f"array_store {arr_val} at {arr_index} in {arr_ref}")
+        self.stack.append((l, la, s, sa, pc+1))
+        return True, b
+
+    def array_load(self, b):
+        (l, la, s, sa, pc) = self.stack.pop(-1)
+
+        index = s.pop().value
+        array = s.pop().value
+        result = Variable(array[index])
+
+        self.stack.append((l, la, s + [result], sa, pc+1))
+        self.log(f"array load {index} {array}")
+
+        return True, b
 
     def arraylength(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
-        arr_ref = s[-1]
-        self.stack.append(l, la, arr_ref[])
+
+        array_ref = s.pop()
+        self.stack.append((l, la, s + [Variable(array_ref.length)], sa, pc+1))
+        self.log(f"array length {array_ref.length}")
+        return True, b
 
 
 def testingSimple():
@@ -434,32 +493,62 @@ def testingSimple():
         intr = Interpreter(method, ArithmeticSignAnalysis)
         print("Running method: " + method["name"])
         if method["name"] == "noop":
-            res = (intr.run(([5, 2, 3, 4], [], 0)))
+            res = (intr.run(([], [], 0)))
             assert res == None
             print("Succeded")
         elif method["name"] == "zero":
             res = (intr.run(([], [], 0)))
             assert res == 0
             print("Succeded")
+        elif method["name"] == "min":
+            res = intr.run(([Variable(1), Variable(2)], [], 0))
+            assert res == 1
+            print("Succedeed")
         elif method["name"] == "hundredAndTwo":
             res = (intr.run(([], [], 0)))
             assert res == 102
             print("Succeded")
         elif method["name"] == "identity":
             a = 2
-            res = (intr.run(([a], [], 0)))
+            res = (intr.run(([Variable(a)], [], 0)))
             assert res == a
             print("Succeded")
         elif method["name"] == "add":
             a = 2
             b = 4
-            res = (intr.run(([a, b], [], 0)))
+            res = (intr.run(([Variable(a), Variable(b)], [], 0)))
             assert res == (a+b)
             print("Succeded")
         elif method["name"] == "factorial":
-            res = (intr.run(([6], [], 0)))
-            assert res == 720
+            res = (intr.run(([Variable(5)], [], 0)))
+            assert res == 120
             print("Succeded")
 
 
-testingSimple()
+# testingSimple()
+
+
+for method in methods:
+    intr = Interpreter(method, ArithmeticSignAnalysis)
+    if method["name"] == "first":
+        print(method["name"])
+
+        res = intr.run(([Variable(("int array", 3, [3, 2, 1]))], [], 0))
+        print(res)
+    elif method["name"] == "access":
+        print(method["name"])
+
+        res = intr.run(
+            ([Variable(0), Variable(("int array", 3, [3, 2, 1]))], [], 0))
+        print(res)
+    elif method["name"] == "newArray":
+        print(method["name"])
+
+        res = intr.run(
+            ([], [], 0))
+        print(res)
+    elif method["name"] == "bubbleSort":
+        print(method["name"])
+        res = intr.run(
+            ([Variable(("int array", 2, [6, 5, 4, 3, 2, 1]))], [], 0))
+        print(res)
