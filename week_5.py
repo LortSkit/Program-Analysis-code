@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 
 data = json.loads(
-    open('./course-02242-examples/decompiled/dtu/compute/exec/Array.json').read())
+    open('./course-02242-examples/decompiled/eu/bogoe/dtu/exceptional/Arithmetics.json').read())
 
 
 class Pu(ZeroDivisionError):
@@ -19,7 +19,6 @@ class Variable:
             array_type, length, array = value
             self.value = array
             self.type = array_type
-            print(length)
             self.length = length
             if self.length > len(array):
                 self.value = self.value + [0] * (self.length - len(array))
@@ -119,24 +118,24 @@ def binaries(interpreter, b, v1, v2, va1, va2):
     res = None
     resa = None
     if b["operant"] == "add":
-        interpreter.log(f"Add {v1} + {v2}")
+        interpreter.log(f"Add {v2} + {v1}")
         res = v1+v2
         resa = va1.abstr_add(va2.ps)
     elif b["operant"] == "sub":
-        interpreter.log(f"Sub {v1} - {v2}")
-        res = v1-v2
+        interpreter.log(f"Sub {v2} - {v1}")
+        res = v2-v1
         resa = va1.abstr_sub(va2.ps)
     elif b["operant"] == "mul":
-        interpreter.log(f"Mul {v1} * {v2}")
+        interpreter.log(f"Mul {v2} * {v1}")
         res = v1*v2
         resa = va1.abstr_mul(va2.ps)
     elif b["operant"] == "div":
-        interpreter.log(f"Div {v1} / {v2}")
-        res = v1//v2
+        interpreter.log(f"Div {v2} / {v1}")
+        res = v2//v1
         resa = va1.abstr_div(va2.ps)
     elif b["operant"] == "rem":
-        interpreter.log(f"Rem {v1} % {v2}")
-        res = v1 % v2
+        interpreter.log(f"Rem {v2} % {v1}")
+        res = v2 % v1
         resa = va1.abstr_rem(va2.ps)
     if len(resa.error) > 0:
         for error in resa.error:
@@ -324,13 +323,18 @@ class Interpreter:
     def load(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
         type = b["type"]
-        v = l[b["index"]]  # Variable
-        va = la[b["index"]]
         if type == "int":
+            v = l[b["index"]]  # Variable
+            va = la[b["index"]]
             self.log(f"Loading {v.value} from index {b['index']}")
             self.stack.append(
                 (l, la, (s+[deepcopy(v)])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
         elif type == "ref":
+            try:
+                v = l[b["index"]]  # Variable
+                va = la[b["index"]]
+            except:
+                raise Exception("Index out of bounds")
             self.log(f"Loading {v.value} from index {b['index']}")
             self.stack.append(
                 (l, la, (s+[v])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
@@ -395,6 +399,8 @@ class Interpreter:
         v2 = s[-2]
         va1 = sa[-1]
         va2 = sa[-2]
+        if b["operant"] == "div" and v1.value == 0:
+            raise Exception("Division by zero")
         (res, resa) = binaries(self, b, v1.value, v2.value, va1, va2)
         self.stack.append(
             (l, la, s[:-2] + [Variable(res)], sa[:-2] + [resa], pc + 1))
@@ -487,6 +493,13 @@ class Interpreter:
         self.log(f"array length {array_ref.length}")
         return True, b
 
+    # def assert1(self, b):
+    #     (l, la, s, sa, pc) = self.stack.pop(-1)
+    #     if s[-1].value == 0:
+    #         raise Exception("AssertionError")
+    #     self.stack.append((l, la, s[:-1], sa, pc+1))
+    #     return True, b
+
 
 def testingSimple():
     for method in methods:
@@ -525,30 +538,85 @@ def testingSimple():
             print("Succeded")
 
 
+def testingArray():
+    for method in methods:
+        intr = Interpreter(method, ArithmeticSignAnalysis)
+        if method["name"] == "first":
+            print(method["name"])
+            res = intr.run(([Variable(("int array", 3, [3, 2, 1]))], [], 0))
+            print(res)
+        elif method["name"] == "firstSafe":
+            pass
+        elif method["name"] == "access":
+            print(method["name"])
+
+            res = intr.run(
+                ([Variable(0), Variable(("int array", 3, [3, 2, 1]))], [], 0))
+            print(res)
+        elif method["name"] == "newArray":
+            print(method["name"])
+
+            res = intr.run(
+                ([], [], 0))
+            print(res)
+        elif method["name"] == "accessSafe":
+            pass
+        elif method["name"] == "bubbleSort":
+            print(method["name"])
+            res = intr.run(
+                ([Variable(("int array", 4, [4, 3, 2, 1]))], [], 0))
+            print(res)
+        elif method["name"] == "aWierdOneOutOfBounds":
+            try:
+                res = intr.run(([], [], 0))
+            except:
+                print("Error: Index out of bounds")
+        elif method["name"] == "aWierdOneWithinBounds":
+            res = intr.run(([], [], 0))
+            assert res == 1
+            print("Succeded")
+# testingSimple()
+
 # testingSimple()
 
 
-for method in methods:
-    intr = Interpreter(method, ArithmeticSignAnalysis)
-    if method["name"] == "first":
-        print(method["name"])
+def testingArithmetics():
+    for method in methods:
+        intr = Interpreter(method, ArithmeticSignAnalysis)
+        print("="*20)
+        print("Running method: " + method["name"])
+        if method["name"] == "alwaysThrows1":
+            try:
+                res = (intr.run(([][:method["max_locals"]], [], 0)))
+                print("Failed")
+            except:
+                print("Succeded")
 
-        res = intr.run(([Variable(("int array", 3, [3, 2, 1]))], [], 0))
-        print(res)
-    elif method["name"] == "access":
-        print(method["name"])
+        elif method["name"] == "alwaysThrows2":
+            try:
+                res = (intr.run(([Variable(1)][:method["max_locals"]], [], 0)))
+                print("Failed")
+            except:
+                print("Succeded")
 
-        res = intr.run(
-            ([Variable(0), Variable(("int array", 3, [3, 2, 1]))], [], 0))
-        print(res)
-    elif method["name"] == "newArray":
-        print(method["name"])
+        # elif method["name"] == "alwaysThrows3":
+        #     res = (intr.run(([Variable(1), Variable(2)]
+        #            [:method["max_locals"]], [], 0)))
+        #     print("Failed")
 
-        res = intr.run(
-            ([], [], 0))
-        print(res)
-    elif method["name"] == "bubbleSort":
-        print(method["name"])
-        res = intr.run(
-            ([Variable(("int array", 2, [6, 5, 4, 3, 2, 1]))], [], 0))
-        print(res)
+        # elif method["name"] == "alwaysThrows4":
+        #     try:
+        #         res = (intr.run(([Variable(1), Variable(2)]
+        #                [:method["max_locals"]], [], 0)))
+        #         print("Failed")
+        #     except:
+        #         print("Succeded")
+        # elif method["name"] == "alwaysThrows5":
+
+        #     res = (intr.run(([Variable(1), Variable(2)]
+        #            [:method["max_locals"]], [], 0)))
+        #     print("Failed")
+        print("="*20)
+
+
+testingArithmetics()
