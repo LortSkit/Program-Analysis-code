@@ -195,6 +195,8 @@ class Interpreter:
             (l, s, pc) = self.stack.pop(-1)
             v1 = s[-1]
             v2 = s[-2]
+            if v2 == 0:
+                raise("Division by zero")
 
             self.log("div " + str(v1) + " / " + str(v2))
             self.stack.append((l, s[:-2] + [v1/v2], pc + 1))
@@ -272,4 +274,21 @@ def testingSimple():
             print("Succeded")
 
 
-testingSimple()
+# testingSimple()
+
+
+def testingArithmetics():
+    for method in methods:
+        intr = Interpreter(method, None)
+        print("="*20)
+        print("Running method: " + method["name"])
+        if method["name"] == "alwaysThrows1":
+            try:
+                res = (intr.run(([][:method["max_locals"]], [], 0)))
+                print("Failed")
+            except:
+                print("Succeded")
+        print("="*20)
+
+
+testingArithmetics()

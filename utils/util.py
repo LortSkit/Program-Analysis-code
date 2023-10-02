@@ -116,6 +116,12 @@ def cleanByteCode(bytecofr):
     return bytecofr
 
 
+def getMethod(methods, name):
+    for method in methods:
+        if method["name"] == name:
+            return method
+
+
 def getCleanMethods(data):
     methods = []
     for method in data["methods"]:

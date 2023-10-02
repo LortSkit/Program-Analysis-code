@@ -1,26 +1,11 @@
-import unittest
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.util import Variable, getCleanMethods, getMethod
 import json
-
-
-# def testingArithmetics():
-#     for method in methods:
-#         intr = Interpreter(method, ArithmeticSignAnalysis)
-#         print("="*20)
-#         print("Running method: " + method["name"])
-#         if method["name"] == "alwaysThrows1":
-#             try:
-#                 res = (intr.run(([][:method["max_locals"]], [], 0)))
-#                 print("Failed")
-#             except:
-#                 print("Succeded")
-
-#         elif method["name"] == "alwaysThrows2":
-#             try:
-#                 res = (intr.run(([Variable(1)][:method["max_locals"]], [], 0)))
-#                 print("Failed")
-#             except:
-#                 print("Succeded")
-#         print("="*20)
+import unittest
+from utils.interpreter import Interpreter
+from utils.AbstractSignAnalysis import ArithmeticSignAnalysis
 
 
 methods = json.loads(open(
@@ -31,3 +16,8 @@ print(methods)
 class ArithmeticsTestCase(unittest.TestCase):
     def test_arithmetics(self):
         pass
+
+
+if __name__ == '__main__':
+    unittest.main()
+

@@ -1,29 +1,28 @@
-from utils import binaries, booleans, getCleanMethods, Variable
+from utils.util import binaries, booleans, getCleanMethods, Variable
 from copy import deepcopy
 
 
 class Interpreter:
-    def __init__(self, p, abrstraction_class):
+    def __init__(self, p, abrstraction_class, verbose=False):
         self.program = p
+        self.verbose = verbose
         # self.memory = {}
         self.stack = []
-        self.Error = {}
+        self.error = {}
         self.abstraction_class = abrstraction_class
 
     def log(self, mes):
-        print(mes)
+        if self.verbose:
+            print(mes)
 
     def run(self, f):
         (l, s, pc) = f
         la = [self.abstraction_class(local.value) for local in l]
-
         sa = []
         f = (l, la, s, sa, pc)
-
         self.stack.append(f)
         while True:
             flag, ret = self.step()
-            print(sa)
             if not flag:
                 return ret
 

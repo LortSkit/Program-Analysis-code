@@ -1,79 +1,59 @@
-from utils import Variable
-from interpreter import Interpreter
-from AbstractSignAnalysis import ArithmeticSignAnalysis
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.AbstractSignAnalysis import ArithmeticSignAnalysis
+from utils.interpreter import Interpreter
+import unittest
+import json
+from utils.util import Variable, getCleanMethods, getMethod
+
+data = json.loads(
+    open('./course-02242-examples/decompiled/dtu/compute/exec/Simple.json').read())
+methods = getCleanMethods(data)
 
 
-def testingSimple():
-    for method in methods:
-        intr = Interpreter(method, ArithmeticSignAnalysis)
-        print("Running method: " + method["name"])
-        if method["name"] == "noop":
-            res = (intr.run(([], [], 0)))
-            assert res == None
-            print("Succeded")
-        elif method["name"] == "zero":
-            res = (intr.run(([], [], 0)))
-            assert res == 0
-            print("Succeded")
-        elif method["name"] == "min":
-            res = intr.run(([Variable(1), Variable(2)], [], 0))
-            assert res == 1
-            print("Succedeed")
-        elif method["name"] == "hundredAndTwo":
-            res = (intr.run(([], [], 0)))
-            assert res == 102
-            print("Succeded")
-        elif method["name"] == "identity":
-            a = 2
-            res = (intr.run(([Variable(a)], [], 0)))
-            assert res == a
-            print("Succeded")
-        elif method["name"] == "add":
-            a = 2
-            b = 4
-            res = (intr.run(([Variable(a), Variable(b)], [], 0)))
-            assert res == (a+b)
-            print("Succeded")
-        elif method["name"] == "factorial":
-            res = (intr.run(([Variable(5)], [], 0)))
-            assert res == 120
-            print("Succeded")
+class TestSimple(unittest.TestCase):
+    def test_noop(self):
+        intr = Interpreter(getMethod(methods, "noop"), ArithmeticSignAnalysis)
+        res = intr.run(([], [], 0))
+        self.assertEqual(res, None)
+
+    def test_zero(self):
+        intr = Interpreter(getMethod(methods, "zero"), ArithmeticSignAnalysis)
+        res = intr.run(([], [], 0))
+        self.assertEqual(res, 0)
+
+    def test_min(self):
+        intr = Interpreter(getMethod(methods, "min"), ArithmeticSignAnalysis)
+        res = intr.run(([Variable(1), Variable(2)], [], 0))
+        self.assertEqual(res, 1)
+
+    def test_hundredAndTwo(self):
+        intr = Interpreter(
+            getMethod(methods, "hundredAndTwo"), ArithmeticSignAnalysis)
+        res = intr.run(([], [], 0))
+        self.assertEqual(res, 102)
+
+    def test_identity(self):
+        intr = Interpreter(getMethod(methods, "identity"),
+                           ArithmeticSignAnalysis)
+        a = 2
+        res = intr.run(([Variable(a)], [], 0))
+        self.assertEqual(res, a)
+
+    def test_add(self):
+        intr = Interpreter(getMethod(methods, "add"), ArithmeticSignAnalysis)
+        a = 2
+        b = 4
+        res = intr.run(([Variable(a), Variable(b)], [], 0))
+        self.assertEqual(res, (a+b))
+
+    def test_factorial(self):
+        intr = Interpreter(getMethod(methods, "factorial"),
+                           ArithmeticSignAnalysis)
+        res = intr.run(([Variable(5)], [], 0))
+        self.assertEqual(res, 120)
 
 
-def testingArray():
-    for method in methods:
-        intr = Interpreter(method, ArithmeticSignAnalysis)
-        if method["name"] == "first":
-            print(method["name"])
-            res = intr.run(([Variable(("int array", 3, [3, 2, 1]))], [], 0))
-            print(res)
-        elif method["name"] == "firstSafe":
-            pass
-        elif method["name"] == "access":
-            print(method["name"])
-
-            res = intr.run(
-                ([Variable(0), Variable(("int array", 3, [3, 2, 1]))], [], 0))
-            print(res)
-        elif method["name"] == "newArray":
-            print(method["name"])
-
-            res = intr.run(
-                ([], [], 0))
-            print(res)
-        elif method["name"] == "accessSafe":
-            pass
-        elif method["name"] == "bubbleSort":
-            print(method["name"])
-            res = intr.run(
-                ([Variable(("int array", 4, [4, 3, 2, 1]))], [], 0))
-            print(res)
-        elif method["name"] == "aWierdOneOutOfBounds":
-            try:
-                res = intr.run(([], [], 0))
-            except:
-                print("Error: Index out of bounds")
-        elif method["name"] == "aWierdOneWithinBounds":
-            res = intr.run(([], [], 0))
-            assert res == 1
-            print("Succeded")
+if __name__ == '__main__':
+    unittest.main()
