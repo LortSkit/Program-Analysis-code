@@ -1,4 +1,4 @@
-from utils.util import binaries, booleans, getCleanMethods, Variable
+from utils.util import binaries, booleans, getCleanMethods, Variable, getHierarchy
 from copy import deepcopy
 
 
@@ -8,12 +8,16 @@ class Interpreter:
         self.verbose = verbose
         # self.memory = {}
         self.stack = []
-        self.error = {}
+        self.error = set()
         self.abstraction_class = abrstraction_class
 
     def log(self, mes):
         if self.verbose:
-            print(mes)
+            try:
+                (_, _, _, _, temp) = self.stack[-1]
+            except:
+                temp = "x"
+            print(f"{temp}: {mes}")
 
     def run(self, f):
         (l, s, pc) = f
@@ -23,6 +27,7 @@ class Interpreter:
         self.stack.append(f)
         while True:
             flag, ret = self.step()
+            print(la)
             if not flag:
                 return ret
 
@@ -64,7 +69,14 @@ class Interpreter:
             va = la[b["index"]]
             self.log(f"Loading {v.value} from index {b['index']}")
             self.stack.append(
-                (l, la, (s+[deepcopy(v)])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
+                (
+                    l,
+                    la,
+                    (s + [deepcopy(v)])[-self.program["max_stack"] :],
+                    (sa + [va])[-self.program["max_stack"] :],
+                    pc + 1,
+                )
+            )
         elif type == "ref":
             try:
                 v = l[b["index"]]  # Variable
@@ -73,7 +85,14 @@ class Interpreter:
                 raise Exception("Index out of bounds")
             self.log(f"Loading {v.value} from index {b['index']}")
             self.stack.append(
-                (l, la, (s+[v])[-self.program["max_stack"]:], (sa+[va])[-self.program["max_stack"]:], pc+1))
+                (
+                    l,
+                    la,
+                    (s + [v])[-self.program["max_stack"] :],
+                    (sa + [va])[-self.program["max_stack"] :],
+                    pc + 1,
+                )
+            )
 
         return True, b
 
@@ -86,7 +105,7 @@ class Interpreter:
             l.append(s[-1])
             la.append(sa[-1])
         self.log(f"Storing {s[-1].value} at index {b['index']}")
-        self.stack.append((l, la, s[:-1], sa, pc+1))
+        self.stack.append((l, la, s[:-1], sa, pc + 1))
         return True, b
 
     def if1(self, b):
@@ -97,7 +116,7 @@ class Interpreter:
         v1 = s[-2]
         flag = booleans(self, b, v1.value, v2.value)
 
-        self.stack.append((l, la, s[:-2], sa, pc+1))
+        self.stack.append((l, la, s[:-2], sa, pc + 1))
         if flag:
             return self.goto(b)
         return True, b
@@ -106,7 +125,7 @@ class Interpreter:
         flag = False
         (l, la, s, sa, pc) = self.stack.pop(-1)
         v1 = s[-1]
-        self.stack.append((l, la, s[:-1], sa, pc+1))
+        self.stack.append((l, la, s[:-1], sa, pc + 1))
         v2 = Variable(0)
         flag = booleans(self, b, v1.value, v2.value)
 
@@ -126,7 +145,7 @@ class Interpreter:
         l[b["index"]].value += b["amount"]
         amount_sign = self.abstraction_class(b["amount"])
         la[b["index"]] = (la[b["index"]]).abstr_add(amount_sign.ps)
-        self.stack.append((l, la, s, sa, pc+1))
+        self.stack.append((l, la, s, sa, pc + 1))
         return True, b
 
     def binary(self, b):
@@ -135,11 +154,16 @@ class Interpreter:
         v2 = s[-2]
         va1 = sa[-1]
         va2 = sa[-2]
-        if b["operant"] == "div" and v1.value == 0:
-            raise Exception("Division by zero")
+        print(sa)
+        if b["operant"] == "div" and ("0" in va1.ps):
+            self.error.add("Division by zero: div")
+            raise Exception("Division by zero: div")
+        if b["operant"] == "rem" and ("0" in va1.ps):
+            self.error.add("Division by zero: rem")
+            raise Exception("Division by zero: rem")
+
         (res, resa) = binaries(self, b, v1.value, v2.value, va1, va2)
-        self.stack.append(
-            (l, la, s[:-2] + [Variable(res)], sa[:-2] + [resa], pc + 1))
+        self.stack.append((l, la, s[:-2] + [Variable(res)], sa[:-2] + [resa], pc + 1))
         return True, b
 
     def return1(self, b):
@@ -153,15 +177,50 @@ class Interpreter:
         else:
             return False, None
 
-    def get1(self, b):  # This should get methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    def get1(
+        self, b
+    ):  # This should get methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         (l, la, s, sa, pc) = self.stack.pop(-1)
+        if b["static"] and b["field"]["name"] == "$assertionsDisabled":
+            self.stack.append((l, la, s + [Variable(1)], sa, pc + 1))
+            return True, b
+
         self.log("FUNCTION get NOT IMPLEMENTED")
         self.stack.append((l, la, s, sa, pc + 1))
         return True, b
 
-    def invoke(self, b):  # This should use methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    def negate(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
-        self.log("FUNCTION invoke NOT IMPLEMENTED")
+        self.log(f"Negate {s[-1].value}")
+        sa1 = sa[-1].abstr_negate()
+        self.stack.append(
+            (l, la, s[:-1] + [Variable(-(s[-1].value))], sa[:-1] + [sa1], pc + 1)
+        )
+
+        return True, b
+
+    def invoke(
+        self, b
+    ):  # This should use methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        (l, la, s, sa, pc) = self.stack.pop(-1)
+        file_list = b["method"]["ref"]["name"].split("dtu/compute/exec/")
+        if file_list[0] == "dtu/compute/exec/":
+            self.log(f"You tried to invoke {b['method']['name']}")
+            return True, b
+        method = getHierarchy()[b["method"]["name"]]
+        n = len(b["method"]["args"])
+        self.log(f"Invoking {b['method']['name']} ({s[-1]})")
+        new_inter = Interpreter(method, self.abstraction_class, verbose=self.verbose)
+        value = new_inter.run((s[::-1][:n], [], 0))
+
+        self.stack.append((l, la, s[:-1] + [Variable(value)], sa, pc + 1))
+        return True, b
+
+    def new(
+        self, b
+    ):  # This should use methods from other classes NOT DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        (l, la, s, sa, pc) = self.stack.pop(-1)
+        self.log("FUNCTION new NOT IMPLEMENTED")
         self.stack.append((l, la, s, sa, pc + 1))
         return True, b
 
@@ -170,8 +229,15 @@ class Interpreter:
         va = self.abstraction_class(v)
         (l, la, s, sa, pc) = self.stack.pop(-1)
         self.stack.append(
-            (l, la, (s + [Variable(v)])[-self.program["max_stack"]:], (sa + [va])[-self.program["max_stack"]:], pc + 1))
-        self.log(f'push {v}')
+            (
+                l,
+                la,
+                (s + [Variable(v)])[-self.program["max_stack"] :],
+                (sa + [va])[-self.program["max_stack"] :],
+                pc + 1,
+            )
+        )
+        self.log(f"push {v}")
         return True, b
 
     def newarray(self, b):
@@ -184,7 +250,8 @@ class Interpreter:
             return False, None
 
         self.stack.append(
-            (l, la, s[:-1] + [Variable(("int array", arr_length, []))], sa, pc+1))
+            (l, la, s[:-1] + [Variable(("int array", arr_length, []))], sa, pc + 1)
+        )
         self.log(f"newarray of type {arr_type} and length {arr_length}")
         return True, b
 
@@ -203,20 +270,30 @@ class Interpreter:
         arr_val = s.pop()
         arr_index = s.pop()
         arr_ref = s.pop()
+        if "-" in sa[-2].ps or arr_index.value >= arr_ref.length:
+            self.error.add("Array index out of bound")
+            raise Exception("Array index out of bound")
+
         arr_ref.value[arr_index.value] = arr_val.value
 
         self.log(f"array_store {arr_val} at {arr_index} in {arr_ref}")
-        self.stack.append((l, la, s, sa, pc+1))
+        self.stack.append((l, la, s, sa, pc + 1))
         return True, b
 
     def array_load(self, b):
         (l, la, s, sa, pc) = self.stack.pop(-1)
 
         index = s.pop().value
-        array = s.pop().value
+        array = s[-1].value
+        array_length = s[-1].length
+        s.pop()
+
+        if "-" in sa[-2].ps or index >= array_length:
+            self.error.add("Index out of bound")
+            raise Exception("Index out of bound")
         result = Variable(array[index])
 
-        self.stack.append((l, la, s + [result], sa, pc+1))
+        self.stack.append((l, la, s + [result], sa, pc + 1))
         self.log(f"array load {index} {array}")
 
         return True, b
@@ -225,6 +302,6 @@ class Interpreter:
         (l, la, s, sa, pc) = self.stack.pop(-1)
 
         array_ref = s.pop()
-        self.stack.append((l, la, s + [Variable(array_ref.length)], sa, pc+1))
+        self.stack.append((l, la, s + [Variable(array_ref.length)], sa, pc + 1))
         self.log(f"array length {array_ref.length}")
         return True, b

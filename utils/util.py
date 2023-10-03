@@ -1,3 +1,7 @@
+import json
+import os
+
+
 def booleans(interpreter, b, v1, v2):
     flag = False
     if b["condition"] == "eq":
@@ -59,24 +63,24 @@ def binaries(interpreter, b, v1, v2, va1, va2):
     resa = None
     if b["operant"] == "add":
         interpreter.log(f"Add {v2} + {v1}")
-        res = v1+v2
-        resa = va1.abstr_add(va2.ps)
+        res = v1 + v2
+        resa = va2.abstr_add(va1.ps)
     elif b["operant"] == "sub":
         interpreter.log(f"Sub {v2} - {v1}")
-        res = v2-v1
-        resa = va1.abstr_sub(va2.ps)
+        res = v2 - v1
+        resa = va2.abstr_sub(va1.ps)
     elif b["operant"] == "mul":
         interpreter.log(f"Mul {v2} * {v1}")
-        res = v1*v2
-        resa = va1.abstr_mul(va2.ps)
+        res = v2 * v1
+        resa = va2.abstr_mul(va1.ps)
     elif b["operant"] == "div":
         interpreter.log(f"Div {v2} / {v1}")
-        res = v2//v1
-        resa = va1.abstr_div(va2.ps)
+        res = v2 // v1
+        resa = va2.abstr_div(va1.ps)
     elif b["operant"] == "rem":
         interpreter.log(f"Rem {v2} % {v1}")
         res = v2 % v1
-        resa = va1.abstr_rem(va2.ps)
+        resa = va2.abstr_rem(va1.ps)
     if len(resa.error) > 0:
         for error in resa.error:
             print(error)
@@ -128,8 +132,30 @@ def getCleanMethods(data):
         for annotation in method["annotations"]:
             if annotation["type"] == "dtu/compute/exec/Case":
                 methods.append(
-                    {"name": method["name"], "bytecode": cleanByteCode(method["code"]["bytecode"]),
-                     "max_stack": method["code"]["max_stack"], "max_locals": method["code"]["max_locals"]})
+                    {
+                        "name": method["name"],
+                        "bytecode": cleanByteCode(method["code"]["bytecode"]),
+                        "max_stack": method["code"]["max_stack"],
+                        "max_locals": method["code"]["max_locals"],
+                    }
+                )
                 break
 
     return methods
+
+
+def getHierarchy():
+    cn = dict()
+    project_location = "./course-02242-examples/decompiled/dtu/compute/exec/"
+
+    for file in os.listdir(project_location):
+        with open(project_location + file) as f:
+            file_name = file.split(".json")[0]
+            data = json.loads(f.read())
+            methods = getCleanMethods(data)
+            method_dict = {}
+            for method in methods:
+                method_dict.update({method["name"]: method})
+                cn[file_name] = method_dict
+                # cn[file["name"]]["file"] = file.split(".")[0]
+    return cn
